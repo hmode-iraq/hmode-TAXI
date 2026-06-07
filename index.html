@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تكسي حمودي - لوحة التحكم والرقابة المحمية 🚖</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-dark: #0f172a; --card-dark: #1e293b; --primary-gold: #f59e0b;
+            --text-light: #f8fafc; --text-muted: #94a3b8; --success: #10b981;
+            --danger: #ef4444; --accent-blue: #3b82f6; --admin-purple: #8b5cf6;
+        }
+        body { font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: var(--text-light); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; gap: 25px; flex-wrap: wrap; }
+        
+        .app-container { background-color: var(--card-dark); border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); width: 420px; height: 840px; overflow: hidden; display: flex; flex-direction: column; border: 4px solid #334155; position: relative; }
+        .admin-container { width: 680px; height: 840px; background-color: var(--card-dark); border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); border: 4px solid var(--admin-purple); display: flex; flex-direction: column; overflow: hidden; }
+        
+        .header { background: linear-gradient(to bottom, #1e293b, #0f172a); color: var(--text-light); padding: 20px; text-align: center; font-weight: 800; font-size: 1.2rem; border-bottom: 2px solid rgba(245, 158, 11, 0.2); position: relative;}
+        .content { padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .map-box { width: 100%; height: 200px; margin-bottom: 15px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); z-index: 1; }
+        
+        .btn-gold { background: linear-gradient(135deg, var(--primary-gold), #d97706); color: #000; border: none; padding: 15px; font-size: 1.1rem; font-weight: 800; border-radius: 16px; cursor: pointer; width: 100%; transition: 0.2s; font-family: inherit; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); }
+        .btn-gold:hover { transform: translateY(-2px); }
+        .btn-modern { width: 100%; padding: 12px; border-radius: 14px; border: none; font-family: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-success { background-color: var(--success); color: white; }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-blue { background-color: var(--accent-blue); color: white; }
+        .btn-gmaps { background-color: #ea4335; color: white; font-weight: 800; }
+        
+        input, select, textarea { width: 100%; padding: 14px; background-color: #0f172a; border: 1px solid #334155; border-radius: 14px; color: white; box-sizing: border-box; font-family: inherit; margin-bottom: 15px; font-size: 0.95rem; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary-gold); outline: none; }
+        
+        .file-label { display: block; background: #0f172a; border: 2px dashed #475569; padding: 12px; border-radius: 14px; text-align: center; color: var(--text-muted); cursor: pointer; margin-bottom: 15px; transition: 0.2s; font-size: 0.9rem; font-weight: bold; }
+        .file-label:hover { border-color: var(--primary-gold); color: white; }
+        input[type="file"] { display: none; }
+        .preview-img { width: 100%; max-height: 100px; object-fit: cover; border-radius: 10px; margin-top: -5px; margin-bottom: 15px; display: none; border: 1px solid var(--primary-gold); }
+
+        .premium-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 22px; padding: 18px; margin-top: 15px; }
+        .admin-card { background: #0f172a; border: 1px solid #334155; border-radius: 18px; padding: 15px; margin-bottom: 15px; }
+        .pulse-badge { font-size: 0.95rem; font-weight: 700; padding: 12px; border-radius: 14px; text-align: center; margin-bottom: 15px; background-color: rgba(245, 158, 11, 0.08); color: var(--primary-gold); border: 1px solid rgba(245, 158, 11, 0.2); }
+        .hidden { display: none !important; }
+        .flex-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        
+        .driver-status-card { display: flex; align-items: center; justify-content: space-between; background: #0f172a; border: 1px solid #334155; padding: 12px 16px; border-radius: 16px; margin-bottom: 10px; }
+        .driver-info h5 { margin: 0; color: white; font-size: 0.95rem; }
+        .driver-info span { font-size: 0.8rem; color: var(--text-muted); }
+        
+        .stars-container { display: flex; justify-content: center; gap: 12px; margin: 15px 0; direction: ltr; }
+        .star-btn { font-size: 2rem; color: #475569; cursor: pointer; background: none; border: none; transition: 0.2s; }
+        .star-btn.active { color: var(--primary-gold); }
+        
+        .logout-btn { position: absolute; left: 15px; top: 20px; background: none; border: none; color: var(--danger); font-family: inherit; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
+
+        /* ستايل شبكة الإحصائيات الفخمة للأدمن */
+        .admin-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stat-card { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 12px; text-align: center; }
+        .stat-card h4 { margin: 0; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+        .stat-card p { margin: 6px 0 0 0; font-size: 1.25rem; font-weight: 800; color: white; }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+
+    <!-- 🔔 نافذة تنبيه فاخرة ومخصصة كبديل عن alert الافتراضي للمتصفح -->
+    <div id="customAlertModal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="premium-card" style="width: 340px; text-align: center; border: 2px solid var(--primary-gold); background-color: var(--card-dark); padding: 25px; margin: 15px;">
+            <h3 id="customAlertTitle" style="color: var(--primary-gold); margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 800;">⚠️ تنبيه الإدارة</h3>
+            <p id="customAlertText" style="color: white; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5;"></p>
+            <button class="btn-gold" onclick="closeCustomAlert()" style="padding: 10px 20px; font-size: 0.95rem;">موافق</button>
+        </div>
+    </div>
+
+    <!-- 📱 تطبيق الهاتف (للزبائن والسائقين) -->
+    <div class="app-container">
+        
+        <!-- 🚪 1. واجهة التسجيل المتقدمة -->
+        <div id="authScreen" class="content" style="justify-content: center;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: var(--primary-gold); margin: 0; font-size: 2.2rem; font-weight: 800;">تكسي حمودي 🚖</h1>
+                <p style="color: var(--text-muted); margin-top: 5px;">نظام ملاحة وخدمات الرطبة الفورية</p>
+            </div>
+            
+            <div class="premium-card" style="margin-top: 0;">
+                <label style="color:var(--text-muted); font-size:0.85rem; font-weight:700;">👤 نوع الحساب الكلي:</label>
+                <select id="userRole" onchange="toggleDriverFields()">
+                    <option value="passenger">🙋‍♂️ حساب زبون جديد (طلب تكسي)</option>
+                    <option value="driver">👨‍✈️ حساب كابتن جديد (استقبال طلبات)</option>
+                </select>
+
+                <label style="color:var(--text-muted); font-size:0.85rem; font-weight:700;">✍️ الاسم الكامل المعتمد:</label>
+                <!-- قمنا بربط حدث oninput للتأكد من كتابة الاسم السري للمالك -->
+                <input type="text" id="regName" placeholder="اكتب الاسم الكامل" oninput="checkAdminBackdoor()">
+
+                <!-- حقل رقم الهاتف (يختفي عندما يكتب المالك اسمه السري) -->
+                <div id="phoneArea">
+                    <label style="color:var(--text-muted); font-size:0.85rem; font-weight:700;">📞 رقم هاتف للتواصل الحركي:</label>
+                    <input type="tel" id="regPhone" placeholder="077XXXXXXXX">
+                </div>
+
+                <!-- 🔑 حقل رمز الدخول الآمن للمالك (يظهر بشكل سري تماماً عندما يتم كتابة الاسم السري "المالك حمودي") -->
+                <div id="adminPasswordArea" class="hidden">
+                    <label style="color:var(--primary-gold); font-size:0.85rem; font-weight:700;">🔑 رمز دخول المالك السري:</label>
+                    <input type="password" id="regPassword" placeholder="ادخل الرمز السري هنا">
+                </div>
+
+                <!-- 🗂️ حقول رفع الوثائق (للكابتن فقط) -->
+                <div id="driverDocumentsArea" class="hidden">
+                    <hr style="border:0; border-top:1px solid #334155; margin:15px 0;">
+                    <p style="color: var(--primary-gold); font-size:0.85rem; margin:0 0 10px 0; font-weight: bold;">📋 يرجى إرفاق الأوراق الرسمية اللازمة:</p>
+                    
+                    <label style="color:var(--text-muted); font-size:0.8rem;">🪪 نسخة صورة من الهوية الوطنية:</label>
+                    <label class="file-label" id="lblNationalId" for="nationalIdFile">📸 اضغط لرفع صورة الهوية</label>
+                    <input type="file" id="nationalIdFile" accept="image/*" onchange="previewAndConvertFile(this, 'previewNationalId', 'lblNationalId')">
+                    <img id="previewNationalId" class="preview-img" src="" alt="الهوية">
+
+                    <label style="color:var(--text-muted); font-size:0.8rem;">🪪 نسخة صورة من إجازة السوق الرسمية:</label>
+                    <label class="file-label" id="lblDrivingLicense" for="drivingLicenseFile">📸 اضغط لرفع صورة الإجازة</label>
+                    <input type="file" id="drivingLicenseFile" accept="image/*" onchange="previewAndConvertFile(this, 'previewDrivingLicense', 'lblDrivingLicense')">
+                    <img id="previewDrivingLicense" class="preview-img" src="" alt="الإجازة">
+                </div>
+
+                <button class="btn-gold" style="margin-top: 10px;" onclick="handleRegistration()">إنشاء الحساب والمتابعة 🚀</button>
+            </div>
+        </div>
+
+        <!-- ⏳ شاشة الانتظار والمراجعة المخصصة للكباتن الجدد -->
+        <div id="driverReviewScreen" class="content hidden" style="justify-content: center; text-align: center;">
+            <div class="premium-card" style="border-color: var(--primary-gold);">
+                <h1 style="font-size: 3.5rem; margin: 0;">⏳</h1>
+                <h2 style="color: var(--primary-gold); margin-top: 10px;">طلبك قيد المراجعة الفورية</h2>
+                <p style="font-size: 0.95rem; line-height: 1.6; color: var(--text-light);">أهلاً بك كابتن <b id="reviewDriverName"></b>. تم استلام ملفك وصور مستمسكاتك بنجاح.</p>
+                <div class="pulse-badge" style="background: rgba(245, 158, 11, 0.05); padding: 15px; font-size: 0.9rem;">سيتم قبولك وتفعيل حسابك من قبل المختصين والمالك بعد التحقق من الأوراق مباشرة.</div>
+                <div id="rejectionReasonBox" class="hidden" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 14px; margin-top: 15px; color: var(--danger);">
+                    <b>❌ تم رفض حسابك للسبب التالي:</b><br><span id="rejectionReasonText"></span>
+                </div>
+                <button class="btn-modern btn-danger" onclick="logout()" style="margin-top: 20px;">العودة للخلف 🚪</button>
+            </div>
+        </div>
+
+        <!-- 🚫 شاشة الحظر التلقائية -->
+        <div id="blockedScreen" class="content hidden" style="justify-content: center; text-align: center;">
+            <div class="premium-card" style="border-color: var(--danger); background: rgba(239, 68, 68, 0.05);">
+                <h1 style="font-size: 4rem; color: var(--danger); margin: 0;">🛑</h1>
+                <h2 style="color: var(--danger); margin-top: 10px;">عذراً، الحساب محظور!</h2>
+                <p style="font-size: 1rem; line-height: 1.6;">تم حظر هذا الحساب من قبل إدارة نظام تكسي حمودي لمخالفة شروط الاستخدام والأمان بالرطبة.</p>
+                <button class="btn-modern btn-danger" onclick="logout()">خروج وتغيير الحساب 🚪</button>
+            </div>
+        </div>
+
+        <!-- 🙋‍♂️ 2. واجهة الراكب الرئيسية -->
+        <div id="passengerMainScreen" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="header">تكسي حمودي - طلب رحلة 🚖 <button class="logout-btn" onclick="logout()">خروج 🚪</button></div>
+            <div class="content">
+                <div id="mapPassenger" class="map-box"></div>
+                <div id="passengerInputArea">
+                    <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted);">🟢 الكباتن النشطين الآن بالرطبة:</h4>
+                    <div id="availableDriversList"><p style="font-size:0.85rem; text-align:center; color:var(--text-muted);">جاري البحث...</p></div>
+                    <hr style="border:0; border-top:1px solid #334155; margin:15px 0;">
+                    <label style="color:var(--text-muted); font-size:0.85rem; font-weight:700;">📍 موقع الانطلاق:</label>
+                    <input type="text" id="startLoc" value="الرطبة - حي الحسين (المركز)" readonly style="color: var(--success); font-weight:bold;">
+                    <label style="color:var(--text-muted); font-size:0.85rem; font-weight:700;">🏁 حدد وجهتك داخل الرطبة:</label>
+                    <input type="text" id="endLoc" placeholder="اكتب المكان بدقة" oninput="updatePriceBox()">
+                    <div id="priceBox" class="premium-card hidden" style="text-align: center;">
+                        <span style="color: var(--text-muted); font-size:0.85rem;">تكلفة الرحلة الثابتة</span>
+                        <h1 style="margin: 8px 0; color: var(--success); font-weight: 800;">2,000 د.ع</h1>
+                        <button class="btn-gold" onclick="sendOrderToFirebase()">تأكيد وإرسال الكابتن 🚀</button>
+                    </div>
+                </div>
+                <!-- واجهة الرحلة النشطة للراكب والconfirmations المباشرة -->
+                <div id="passengerActiveTripView" class="hidden">
+                    <div class="pulse-badge" id="pStatusText">⏳ جاري بث طلبك...</div>
+                    <div class="premium-card"><p><b>🏁 إلى:</b> <span id="pTargetText" style="color:var(--primary-gold); font-weight:700;"></span></p></div>
+                    <div id="passengerConfirmBox" class="premium-card hidden">
+                        <h3 id="confirmQuestionText" style="text-align:center; font-size:1rem;">❓ هل وصل السائق؟</h3>
+                        <div class="flex-buttons"><button class="btn-modern btn-success" onclick="passengerResponse(true)">نعم</button><button class="btn-modern btn-danger" onclick="passengerResponse(false)">لا</button></div>
+                    </div>
+                </div>
+                <div id="ratingView" class="premium-card hidden" style="text-align: center;">
+                    <h3>🎉 وصلنا بالسلامة!</h3><div class="stars-container"><button class="star-btn" onclick="selectStar(1)">★</button><button class="star-btn" onclick="selectStar(2)">★</button><button class="star-btn" onclick="selectStar(3)">★</button><button class="star-btn" onclick="selectStar(4)">★</button><button class="star-btn" onclick="selectStar(5)">★</button></div><button class="btn-gold" onclick="submitRating()">إرسال التقييم</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 👨‍✈️ 3. واجهة الكابتن/السائق الرئيسية -->
+        <div id="driverMainScreen" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+            <div class="header" style="border-bottom: 2px solid var(--success);">لوحة إدارة الكابتن 👨‍✈️ <button class="logout-btn" onclick="logout()">خروج 🚪</button></div>
+            <div class="content">
+                <div class="premium-card" style="margin-top:0; margin-bottom:15px; padding:12px;">
+                    <div class="flex-buttons" style="margin-top:0;"><button id="btnGoActive" class="btn-modern btn-success" style="margin:0;" onclick="setDriverStatus(true)">🟢 نشط</button><button id="btnGoInactive" class="btn-modern btn-danger" style="margin:0; background-color:#475569;" onclick="setDriverStatus(false)">🔴 متوقف</button></div>
+                </div>
+                <div id="mapDriver" class="map-box"></div>
+                <div id="driverWaiting" class="pulse-badge">📡 رادار البحث مستعد وتلقائي للرحلات</div>
+                <div id="driverOrderBox" class="premium-card hidden" style="border-color:var(--danger);">
+                    <h3 style="color:var(--danger); text-align:center; font-weight:800;">🔔 طلب رحلة مباشر!</h3><div id="dOrderDetails" style="background:#0f172a; padding:12px; border-radius:12px; margin-bottom:10px;"></div><button class="btn-modern btn-gmaps" onclick="openGoogleMaps()">📍 الخرائط</button><button class="btn-modern btn-success" onclick="driverAccept()">قبول الطلب</button>
+                </div>
+                <div id="driverActiveTrip" class="premium-card hidden">
+                    <div class="pulse-badge" id="dTripStatusBadge">🚙 في الطريق للزبون</div><p id="dTripDetails" style="text-align:center;"></p><button id="btnArrivedToPassenger" class="btn-modern btn-blue" onclick="driverArrived()">✔️ وصلت للزبون</button><button id="btnFinishedTrip" class="btn-modern btn-success hidden" onclick="driverReachedDestination()">🏁 تم الوصول للوجهة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 👑 لوحة تحكم المالك / الأدمن المحمية بشكل عريض واحترافي -->
+    <div id="adminPanel" class="admin-container hidden">
+        <div class="header" style="background: linear-gradient(to bottom, #4c1d95, #0f172a); border-bottom: 2px solid var(--admin-purple);">
+            👑 لوحة تحكم المالك العليا - تكسي حمودي
+            <button class="logout-btn" onclick="logout()">خروج 🚪</button>
+        </div>
+        <div class="content">
+            
+            <!-- 📊 قسم الإحصائيات والمبالغ المالية الجديد -->
+            <h3 style="color: var(--admin-purple); margin: 0 0 10px 0; font-size:1.1rem; border-bottom:1px dashed #334155; padding-bottom:5px;">📊 التقارير المالية والعدادات الإجمالية:</h3>
+            <div class="admin-stats-grid">
+                <div class="stat-card" style="border-color: var(--accent-blue);">
+                    <h4>👥 إجمالي المستخدمين</h4>
+                    <p id="statTotalUsers">0</p>
+                </div>
+                <div class="stat-card" style="border-color: var(--primary-gold);">
+                    <h4>👨‍✈️ عدد السائقين الكلي</h4>
+                    <p id="statTotalDrivers">0</p>
+                </div>
+                <div class="stat-card" style="border-color: var(--success);">
+                    <h4>🏁 إجمالي الرحلات</h4>
+                    <p id="statTotalTrips">0</p>
+                </div>
+                <div class="stat-card" style="grid-column: span 1.5; border-color: var(--success);">
+                    <h4>💰 المبلغ الكلي للسواقين (1,500 د.ع للرحلة)</h4>
+                    <p id="statTotalDriversCash" style="color: var(--success);">0 د.ع</p>
+                </div>
+                <div class="stat-card" style="grid-column: span 1.5; border-color: var(--primary-gold);">
+                    <h4>👑 المبلغ المستحق للتطبيق (500 د.ع للرحلة)</h4>
+                    <p id="statTotalAppCash" style="color: var(--primary-gold);">0 د.ع</p>
+                </div>
+            </div>
+
+            <!-- قسم مراجعة طلبات السائقين الجدد المستند بالصور والوثائق -->
+            <h3 style="color: var(--primary-gold); margin: 15px 0 10px 0; font-size:1.1rem; border-bottom:1px dashed #334155; padding-bottom:5px;">📥 طلبات الكباتن الجدد بانتظار موافقتك:</h3>
+            <div id="adminReviewSection" style="max-height: 250px; overflow-y: auto;">
+                <p style="text-align:center; color:var(--text-muted); font-size:0.9rem;">لا توجد طلبات انضمام جديدة حالياً.</p>
+            </div>
+
+            <!-- قسم إدارة الحسابات الكلية والرقابة والحظر للمالك -->
+            <h3 style="color: var(--accent-blue); margin: 15px 0 10px 0; font-size:1.1rem; border-bottom:1px dashed #334155; padding-bottom:5px;">👥 الرقابة وإدارة المستخدمين والزبائن:</h3>
+            <div id="adminUsersSection" style="flex: 1; overflow-y: auto;">
+                <p style="text-align:center; color:var(--text-muted); font-size:0.9rem;">جاري جلب قائمة المستخدمين من السيرفر...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAX3R3qtDw7Y3ShFeAUW4S94AWr9JV3GLI",
+            authDomain: "taxi-hamoudi.firebaseapp.com",
+            databaseURL: "https://taxi-hamoudi-default-rtdb.firebaseio.com",
+            projectId: "taxi-hamoudi",
+            storageBucket: "taxi-hamoudi.firebasestorage.app",
+            messagingSenderId: "314639592799",
+            appId: "1:314639592799:web:1faae6b3ae91abea5e1aea"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let currentUser = null;
+        let chosenRating = 5;
+        let mapP, mapD;
+        let base64NationalId = "", base64DrivingLicense = "";
+
+        // 🔔 دوال نافذة التنبيه المخصصة الفاخرة لتعويض Alert
+        function showAlert(message, title = "تنبيه") {
+            document.getElementById('customAlertTitle').innerText = title;
+            document.getElementById('customAlertText').innerText = message;
+            document.getElementById('customAlertModal').classList.remove('hidden');
+            document.getElementById('customAlertModal').style.display = 'flex';
+        }
+
+        function closeCustomAlert() {
+            document.getElementById('customAlertModal').classList.add('hidden');
+            document.getElementById('customAlertModal').style.display = 'none';
+        }
+
+        window.onload = function() {
+            const savedUser = localStorage.getItem('taxi_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                checkBlockAndLaunch();
+            }
+        };
+
+        // 🚪 فحص الباب الخلفي للمالك بشكل سري عند كتابة الاسم
+        function checkAdminBackdoor() {
+            const nameVal = document.getElementById('regName').value.trim();
+            const role = document.getElementById('userRole').value;
+            const passwordArea = document.getElementById('adminPasswordArea');
+            const phoneArea = document.getElementById('phoneArea');
+
+            if (role === 'passenger' && nameVal === 'المالك حمودي') {
+                passwordArea.classList.remove('hidden');
+                phoneArea.classList.add('hidden'); // نخفي الهاتف للمالك لزيادة السرية
+            } else {
+                passwordArea.classList.add('hidden');
+                phoneArea.classList.remove('hidden');
+            }
+        }
+
+        // إدارة إظهار وإخفاء حقول السائق
+        function toggleDriverFields() {
+            const role = document.getElementById('userRole').value;
+            
+            // إدارة حقول السائق
+            document.getElementById('driverDocumentsArea').className = (role === "driver") ? "" : "hidden";
+            
+            // نتحقق من اسم المالك فوراً لإخفاء/إظهار حقل الرمز
+            checkAdminBackdoor();
+        }
+
+        function previewAndConvertFile(input, previewId, labelId) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById(previewId);
+                    preview.src = e.target.result; preview.style.display = "block";
+                    document.getElementById(labelId).innerText = "✔️ تم إرفاق الصورة";
+                    document.getElementById(labelId).style.borderColor = "var(--success)";
+                    if(previewId === 'previewNationalId') base64NationalId = e.target.result;
+                    if(previewId === 'previewDrivingLicense') base64DrivingLicense = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function checkBlockAndLaunch() {
+            const path = (currentUser.role === 'passenger') ? 'passengers/' : (currentUser.role === 'driver' ? 'drivers/' : 'admins/');
+            if(path === 'admins/') { launchDashboard(); return; }
+
+            database.ref(path + currentUser.id).on('value', (snap) => {
+                const data = snap.val();
+                if(data && data.blocked === true) {
+                    // حظر تلقائي لحظي
+                    document.getElementById('authScreen').className = "hidden";
+                    document.getElementById('passengerMainScreen').className = "hidden";
+                    document.getElementById('driverMainScreen').className = "hidden";
+                    document.getElementById('driverReviewScreen').className = "hidden";
+                    document.getElementById('blockedScreen').className = "content";
+                    return;
+                }
+                
+                if(currentUser.role === 'driver' && data) {
+                    if(data.approved === false) {
+                        document.getElementById('authScreen').className = "hidden";
+                        document.getElementById('driverReviewScreen').className = "content";
+                        document.getElementById('reviewDriverName').innerText = data.name;
+                        if(data.rejectReason) {
+                            document.getElementById('rejectionReasonBox').className = "";
+                            document.getElementById('rejectionReasonText').innerText = data.rejectReason;
+                        } else {
+                            document.getElementById('rejectionReasonBox').className = "hidden";
+                        }
+                        return;
+                    }
+                }
+                launchDashboard();
+            });
+        }
+
+        function handleRegistration() {
+            const role = document.getElementById('userRole').value;
+            const name = document.getElementById('regName').value.trim();
+            const phone = document.getElementById('regPhone').value.trim();
+
+            // فحص الدخول للمالك حمودي المدمج سرياً داخل خيار الراكب
+            if (role === 'passenger' && name === "المالك حمودي") {
+                const pass = document.getElementById('regPassword').value;
+                if (pass !== "2006F") {
+                    showAlert("❌ الاسم أو الرمز السري للمالك غير صحيح! يرجى المحاولة مجدداً.", "فشل الدخول السري");
+                    return;
+                }
+                currentUser = { id: "admin_hamoudi", role: "admin", name: name, phone: "07700000000" };
+                localStorage.setItem('taxi_user', JSON.stringify(currentUser));
+                launchDashboard();
+                return;
+            }
+
+            if (name.length < 3 || (role === 'driver' && phone.length < 10)) { 
+                showAlert("الرجاء تعبئة الاسم ورقم الهاتف بدقة ومصداقية ⚠️"); 
+                return; 
+            }
+            
+            const userId = "user_" + phone.replace(/[^0-9]/g, "");
+            currentUser = { id: userId, role: role, name: name, phone: phone };
+
+            if (role === "driver") {
+                if (!base64NationalId || !base64DrivingLicense) { showAlert("يجب رفع الهوية الوطنية والاجازة كابتن ⚠️"); return; }
+                database.ref('drivers/' + userId).set({
+                    id: userId, name: name, phone: phone, active: false, approved: false, blocked: false,
+                    trips: 0, rating: 5.0, ratingCount: 0, docId: base64NationalId, docLicense: base64DrivingLicense
+                });
+                localStorage.setItem('taxi_user', JSON.stringify(currentUser));
+                checkBlockAndLaunch();
+            } else {
+                database.ref('passengers/' + userId).set({ id: userId, name: name, phone: phone, blocked: false });
+                localStorage.setItem('taxi_user', JSON.stringify(currentUser));
+                launchDashboard();
+            }
+        }
+
+        function launchDashboard() {
+            document.getElementById('authScreen').className = "hidden";
+            document.getElementById('blockedScreen').className = "hidden";
+            document.getElementById('driverReviewScreen').className = "hidden";
+
+            if (currentUser.role === "passenger") {
+                document.getElementById('passengerMainScreen').className = ""; initPassengerMap(); listenToAvailableDrivers();
+            } else if (currentUser.role === "driver") {
+                document.getElementById('driverMainScreen').className = ""; initDriverMap(); setDriverStatus(true);
+            } else if (currentUser.role === "admin") {
+                document.getElementById('adminPanel').className = "admin-container";
+                initAdminSystem();
+            }
+            listenToOrdersSystem();
+        }
+
+        /* 👑 إدارة المالك الكلية للرقابة وفك الحظور والمراجعة والحسابات الإحصائية والمالية */
+        function initAdminSystem() {
+            database.ref('drivers').on('value', (snapshot) => {
+                const drivers = snapshot.val() || {};
+                const reviewContainer = document.getElementById('adminReviewSection');
+                const usersContainer = document.getElementById('adminUsersSection');
+                
+                reviewContainer.innerHTML = "";
+                usersContainer.innerHTML = "";
+                
+                let pendingCount = 0;
+                let totalDriversCount = 0;
+                let totalCompletedTrips = 0;
+
+                for(let id in drivers) {
+                    let drv = drivers[id];
+                    totalDriversCount++;
+
+                    // حساب مجموع الرحلات الكلية من السواقين الموافق عليهم ومكتملين
+                    if (drv.approved === true) {
+                        totalCompletedTrips += (drv.trips || 0);
+                    }
+                    
+                    if(drv.approved === false) {
+                        pendingCount++;
+                        reviewContainer.innerHTML += `
+                            <div class="admin-card" style="border-color: var(--primary-gold);">
+                                <p style="margin:5px 0;">👤 <b>الكابتن المتقدم:</b> ${drv.name} (${drv.phone})</p>
+                                <div style="display:flex; gap:10px; margin:10px 0;">
+                                    <div style="flex:1; text-align:center;">
+                                        <span style="font-size:0.75rem; color:var(--text-muted)">🪪 الهوية الوطنية</span>
+                                        <img src="${drv.docId}" style="width:100%; max-height:80px; object-fit:contain; border-radius:8px; border:1px solid #334155; cursor:pointer;" onclick="window.open(this.src)">
+                                    </div>
+                                    <div style="flex:1; text-align:center;">
+                                        <span style="font-size:0.75rem; color:var(--text-muted)">🪪 إجازة السوق</span>
+                                        <img src="${drv.docLicense}" style="width:100%; max-height:80px; object-fit:contain; border-radius:8px; border:1px solid #334155; cursor:pointer;" onclick="window.open(this.src)">
+                                    </div>
+                                </div>
+                                <div class="flex-buttons">
+                                    <button class="btn-modern btn-success" style="padding:8px;" onclick="adminApproveDriver('${drv.id}')">✅ قبول وتفعيل الكابتن</button>
+                                    <button class="btn-modern btn-danger" style="padding:8px;" onclick="adminRejectDriver('${drv.id}')">❌ رفض طلب السائق</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    if(drv.approved === true) {
+                        usersContainer.innerHTML += `
+                            <div class="driver-status-card" style="padding:15px; margin-bottom:12px;">
+                                <div class="driver-info">
+                                    <h5 style="color:var(--primary-gold)">👨‍✈️ كابتن: ${drv.name}</h5>
+                                    <span>هاتف: ${drv.phone} | رحلات: ${drv.trips || 0} | تقييم: ⭐ ${drv.rating || 5}</span>
+                                </div>
+                                <div>
+                                    ${drv.blocked === true ? 
+                                        `<button class="btn-modern btn-success" style="margin:0; padding:6px 12px; font-size:0.8rem;" onclick="adminSetBlock('drivers', '${drv.id}', false)">🔓 فك الحظر</button>` : 
+                                        `<button class="btn-modern btn-danger" style="margin:0; padding:6px 12px; font-size:0.8rem;" onclick="adminSetBlock('drivers', '${drv.id}', true)">🚫 حظر</button>`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                if(pendingCount === 0) reviewContainer.innerHTML = `<p style="text-align:center; color:var(--text-muted); font-size:0.9rem;">لا توجد طلبات انضمام جديدة حالياً.</p>`;
+                
+                // جلب بيانات الركاب لحساب عدد المستخدمين ولإدارتهم
+                database.ref('passengers').once('value', (pSnap) => {
+                    const passengers = pSnap.val() || {};
+                    let totalPassengersCount = Object.keys(passengers).length;
+                    
+                    // حساب المستخدمين الإجمالي
+                    let totalUsers = totalDriversCount + totalPassengersCount;
+
+                    // حساب المبالغ المالية: 
+                    // الأجرة الكاملة: 2,000 د.ع لكل رحلة
+                    // السواقين يستلمون 1,500 د.ع لكل رحلة
+                    // التطبيق (البرنامج) يستلم 500 د.ع عمولة عن كل رحلة
+                    let totalDriversEarnings = totalCompletedTrips * 1500;
+                    let totalAppCommission = totalCompletedTrips * 500;
+
+                    // عرض وتحديث الإحصائيات في واجهة الأدمن تلقائياً
+                    document.getElementById('statTotalUsers').innerText = totalUsers.toLocaleString();
+                    document.getElementById('statTotalDrivers').innerText = totalDriversCount.toLocaleString();
+                    document.getElementById('statTotalTrips').innerText = totalCompletedTrips.toLocaleString();
+                    document.getElementById('statTotalDriversCash').innerText = totalDriversEarnings.toLocaleString() + " د.ع";
+                    document.getElementById('statTotalAppCash').innerText = totalAppCommission.toLocaleString() + " د.ع";
+
+                    for(let pId in passengers) {
+                        let psg = passengers[pId];
+                        usersContainer.innerHTML += `
+                            <div class="driver-status-card" style="padding:15px; margin-bottom:12px; border-color:#334155;">
+                                <div class="driver-info">
+                                    <h5 style="color:var(--accent-blue)">🙋‍♂️ زبون: ${psg.name}</h5>
+                                    <span>هاتف: ${psg.phone}</span>
+                                </div>
+                                <div>
+                                    ${psg.blocked === true ? 
+                                        `<button class="btn-modern btn-success" style="margin:0; padding:6px 12px; font-size:0.8rem;" onclick="adminSetBlock('passengers', '${psg.id}', false)">🔓 فك الحظر</button>` : 
+                                        `<button class="btn-modern btn-danger" style="margin:0; padding:6px 12px; font-size:0.8rem;" onclick="adminSetBlock('passengers', '${psg.id}', true)">🚫 حظر</button>`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            });
+        }
+
+        function adminApproveDriver(driverId) {
+            database.ref('drivers/' + driverId).update({ approved: true, active: false });
+            showAlert("تم قبول الكابتن بنجاح وتفعيل رادار استقباله للرحلات بالرطبة 🎉", "تم تفعيل الكابتن");
+        }
+
+        function adminRejectDriver(driverId) {
+            let reason = prompt("يرجى كتابة سبب الرفض لمشاركته مع الكابتن:");
+            if(reason === null) return;
+            if(reason.trim() === "") reason = "المستمسكات غير مكتملة أو غير واضحة.";
+            database.ref('drivers/' + driverId).update({ approved: false, rejectReason: reason });
+            showAlert("تم رفض طلب السائق ومشاركة السبب معه بنجاح.", "تم رفض طلب الكابتن");
+        }
+
+        function adminSetBlock(nodeType, userId, blockState) {
+            database.ref(nodeType + '/' + userId).update({ blocked: blockState });
+            showAlert(blockState ? "🛑 تم حظر الحساب بنجاح وإيقافه لحظياً." : "🔓 تم فك حظر الحساب بنجاح.", "إدارة الحسابات");
+        }
+
+        function initPassengerMap() { if(mapP) return; mapP = L.map('mapPassenger', { zoomControl: false }).setView([33.0379, 40.2852], 14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapP); L.marker([33.0379, 40.2852]).addTo(mapP); }
+        function initDriverMap() { if(mapD) return; mapD = L.map('mapDriver', { zoomControl: false }).setView([33.0379, 40.2852], 14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapD); L.marker([33.0379, 40.2852]).addTo(mapD); }
+        function logout() { if (currentUser && currentUser.role === "driver") { database.ref('drivers/' + currentUser.id).update({ active: false }); } localStorage.clear(); location.reload(); }
+        function setDriverStatus(isActive) { if(!currentUser || currentUser.role !== "driver") return; database.ref('drivers/' + currentUser.id).update({ active: isActive }); if(isActive) { document.getElementById('btnGoActive').style.backgroundColor = "var(--success)"; document.getElementById('btnGoInactive').style.backgroundColor = "#475569"; } else { document.getElementById('btnGoActive').style.backgroundColor = "#475569"; document.getElementById('btnGoInactive').style.backgroundColor = "var(--danger)"; } }
+        function updatePriceBox() { let val = document.getElementById('endLoc').value; if(val.trim().length >= 2) document.getElementById('priceBox').className = "premium-card"; else document.getElementById('priceBox').className = "premium-card hidden"; }
+        function openGoogleMaps() { window.open("https://www.google.com/maps/search/?api=1&query=33.0379,40.2852", '_blank'); }
+
+        function listenToAvailableDrivers() {
+            database.ref('drivers').on('value', (snapshot) => {
+                const drivers = snapshot.val(); const container = document.getElementById('availableDriversList'); container.innerHTML = ""; let hasActive = false;
+                if(drivers) {
+                    for(let id in drivers) {
+                        if(drivers[id].active === true && drivers[id].approved === true && drivers[id].blocked !== true) {
+                            hasActive = true; container.innerHTML += `<div class="driver-status-card"><div class="driver-info"><h5>🚖 ${drivers[id].name}</h5><span>الرحلات: ${drivers[id].trips || 0} | التقييم: ⭐ ${drivers[id].rating || 5}</span></div><span style="color:var(--success); font-size:0.85rem; font-weight:bold;">● نشط</span></div>`;
+                        }
+                    }
+                }
+                if(!hasActive) container.innerHTML = `<p style="font-size: 0.85rem; color: var(--danger); text-align: center;">⚠️ لا يوجد سواق نشطين بالرطبة حالياً.</p>`;
+            });
+        }
+
+        function sendOrderToFirebase() {
+            let destination = document.getElementById('endLoc').value;
+            database.ref('current_order').set({ passengerName: currentUser.name, passengerPhone: currentUser.phone, start: document.getElementById('startLoc').value, end: destination, price: "2,000 د.ع", status: "pending", driverId: "" });
+            document.getElementById('passengerInputArea').className = "hidden"; document.getElementById('passengerActiveTripView').className = ""; document.getElementById('pTargetText').innerText = destination;
+        }
+
+        function listenToOrdersSystem() {
+            database.ref('current_order').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    if (currentUser && currentUser.role === "driver" && currentUser.approved === true) {
+                        if(data.status === "pending") {
+                            document.getElementById('driverWaiting').className = "hidden"; document.getElementById('driverOrderBox').className = "premium-card";
+                            document.getElementById('dOrderDetails').innerHTML = `👤 <b>الراكب:</b> ${data.passengerName}<br>📍 <b>الإنطلاق:</b> ${data.start}<br>🏁 <b>الوجهة:</b> <span style="color:var(--primary-gold);">${data.end}</span><br>💰 <b>الحساب:</b> ${data.price}`;
+                        }
+                    }
+                    if (currentUser && currentUser.role === "passenger") {
+                        if(data.status === "accepted") {
+                            document.getElementById('pStatusText').innerText = "🚖 الكابتن وافق على طلبك وهو قادم إليك.";
+                        } else if(data.status === "arrived") {
+                            document.getElementById('pStatusText').innerText = "🔔 الكابتن يقف عند الباب بانتظارك!"; document.getElementById('passengerConfirmBox').className = "premium-card";
+                        } else if(data.status === "reached_destination") {
+                            document.getElementById('pStatusText').innerText = "🏁 تم الوصول للوجهة النهائية."; document.getElementById('passengerConfirmBox').className = "premium-card";
+                        }
+                    }
+                } else {
+                    if (currentUser && currentUser.role === "passenger" && !document.getElementById('ratingView').classList.contains('hidden')) return;
+                    resetAppsToHome();
+                }
+            });
+        }
+
+        function driverAccept() { database.ref('current_order').update({ status: "accepted", driverId: currentUser.id }); document.getElementById('driverOrderBox').className = "premium-card hidden"; document.getElementById('driverActiveTrip').className = "premium-card"; document.getElementById('dTripDetails').innerHTML = `توجه للزبون حالياً لبدء المشوار.`; }
+        function driverArrived() { database.ref('current_order').update({ status: "arrived" }); document.getElementById('dTripStatusBadge').innerText = "📢 تم إرسال إشعار وصولك للزبون"; document.getElementById('btnArrivedToPassenger').className = "hidden"; document.getElementById('btnFinishedTrip').className = "btn-modern btn-success"; }
+        function driverReachedDestination() { database.ref('current_order').update({ status: "reached_destination" }); document.getElementById('dTripStatusBadge').innerText = "🏁 بانتظار العميل لتأكيد إنهاء الرحلة..."; document.getElementById('btnFinishedTrip').className = "hidden"; }
+
+        function passengerResponse(isYes) {
+            if (isYes) {
+                database.ref('current_order').once('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data.status === "arrived") {
+                        document.getElementById('passengerConfirmBox').className = "hidden"; document.getElementById('pStatusText').innerText = "🚙 أنت الآن داخل السيارة وفي طريقكم للوجهة.";
+                    } else if (data.status === "reached_destination") {
+                        window.lastDriverId = data.driverId; document.getElementById('passengerActiveTripView').className = "hidden"; document.getElementById('ratingView').className = "premium-card";
+                    }
+                });
+            }
+        }
+
+        function selectStar(rating) { chosenRating = rating; const stars = document.querySelectorAll('.star-btn'); stars.forEach((s, i) => s.className = (i < rating) ? 'star-btn active' : 'star-btn'); }
+        function submitRating() {
+            const targetDriverId = window.lastDriverId || "user_driver_default";
+            database.ref('drivers/' + targetDriverId).once('value', (snapshot) => {
+                let dData = snapshot.val() || { trips: 0, rating: 5, ratingCount: 0 };
+                let newTrips = (dData.trips || 0) + 1; let newCount = (dData.ratingCount || 0) + 1;
+                let newRating = ((dData.rating * dData.ratingCount) + chosenRating) / newCount;
+                database.ref('drivers/' + targetDriverId).update({ trips: newTrips, rating: parseFloat(newRating.toFixed(1)), ratingCount: newCount });
+                database.ref('current_order').remove();
+                document.getElementById('ratingView').className = "premium-card hidden"; resetAppsToHome();
+            });
+        }
+
+        function resetAppsToHome() {
+            if(document.getElementById('driverOrderBox')) {
+                document.getElementById('driverOrderBox').className = "hidden"; document.getElementById('driverActiveTrip').className = "hidden"; document.getElementById('driverWaiting').className = "pulse-badge";
+                document.getElementById('passengerInputArea').className = ""; document.getElementById('passengerActiveTripView').className = "hidden"; document.getElementById('passengerConfirmBox').className = "hidden";
+                document.getElementById('btnArrivedToPassenger').className = "btn-modern btn-blue"; document.getElementById('btnFinishedTrip').className = "hidden";
+                if(document.getElementById('endLoc')) document.getElementById('endLoc').value = "";
+                if(document.getElementById('priceBox')) document.getElementById('priceBox').className = "hidden";
+            }
+        }
+    </script>
+</body>
+</html>
